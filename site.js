@@ -47,9 +47,11 @@ languageButton.addEventListener("click", () => {
   search.setAttribute("aria-label", language === "zh" ? "搜索产品" : "Search products");
   document.querySelector("nav").setAttribute("aria-label", language === "zh" ? "主导航" : "Main navigation");
   document.querySelector(".filters")?.setAttribute("aria-label", language === "zh" ? "产品分类" : "Product categories");
-  document.querySelector(".wordmark").setAttribute("aria-label", language === "zh" ? "Colvenna 首页" : "Colvenna home");
+  for (const wordmark of document.querySelectorAll(".wordmark")) {
+    wordmark.setAttribute("aria-label", language === "zh" ? "Colvenna 科维纳首页" : "Colvenna home");
+  }
   document.title = language === "zh"
-    ? "Colvenna — 列与流 · 公开产品"
+    ? "Colvenna 科维纳 — 列与流 · 公开产品"
     : "Colvenna — Columns & flow · Public products";
   filterProducts();
 });
