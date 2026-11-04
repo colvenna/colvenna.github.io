@@ -6,9 +6,11 @@
 #     head a force push replaced that GitHub still serves by its SHA. The website is the repository's
 #     content, so the history covers it;
 #   - GitHub text: issues and pull requests with their comments, reviews and review comments, release
-#     notes and commit comments.
+#     notes and commit comments; and the wiki, when it is enabled (an enabled wiki that cannot be cloned
+#     fails the scan).
 # Reports with matched values stay in the output directory (keep it private); the summary holds none.
-# Exit 0 only when every scan is complete and finds 0 incidents.
+# Exit 0 only when every scan is complete and finds 0 incidents. It refuses a ggshield version other
+# than the one scripts/ggshield-requirements.lock pins, because its checks read that version's messages.
 #
 # usage: scripts/ggshield-scan.sh <new private output directory> [branch, default main]
 # needs: git, gh (authenticated), python3, ggshield (or GGSHIELD=<path>) with a GitGuardian API key
@@ -20,6 +22,12 @@ gg="${GGSHIELD:-ggshield}"
 mkdir -m 700 "$out"
 export GIT_TERMINAL_PROMPT=0 # anonymous: never prompt, use no stored credential
 anon=(git -c credential.helper=)
+want="$(sed -n 's/^ggshield==\([^ ]*\) .*/\1/p' "$(dirname "$0")/ggshield-requirements.lock")"
+have="$("$gg" --version 2>/dev/null | sed -n 's/^ggshield, version //p' || true)"
+if [[ "$have" != "$want" ]]; then # the completeness checks read this version's messages
+  echo "the scan needs ggshield $want, installed from scripts/ggshield-requirements.lock (found: ${have:-none})" >&2
+  exit 2
+fi
 quota() { "$gg" quota 2>/dev/null | head -1 || echo unavailable; }
 quota_before="$(quota)"
 
@@ -59,7 +67,8 @@ mkdir "$out/github-text"
   gh api --paginate "repos/$repo/releases?per_page=100" \
     --jq '.[] | {name: "release-\(.tag_name).md", text: "\(.name // "")\n\n\(.body // "")"}'
   gh api --paginate "repos/$repo/comments?per_page=100" --jq '.[] | {name: "commit-comment-\(.id).md", text: (.body // "")}'
-  for number in $(gh api --paginate "repos/$repo/pulls?state=all&per_page=100" --jq '.[].number'); do
+  pulls="$(gh api --paginate "repos/$repo/pulls?state=all&per_page=100" --jq '.[].number')" # fails the script
+  for number in $pulls; do
     gh api --paginate "repos/$repo/pulls/$number/reviews?per_page=100" \
       --jq ".[] | select(.body != \"\") | {name: \"pull-$number-review-\(.id).md\", text: .body}"
   done
@@ -74,6 +83,15 @@ print(len(lines))' "$out/github-text.jsonl" "$out/github-text")"
 status=0
 "$gg" --config-path "$out/gitguardian.yaml" secret scan repo "$out/mirror.git" --json \
   > "$out/history.json" 2> "$out/history.stderr" || status=$?
+scopes=("history:$status")
+if [[ "$(gh api "repos/$repo" --jq .has_wiki)" == true ]]; then
+  "${anon[@]}" clone --quiet --mirror "https://github.com/$repo.wiki.git" "$out/wiki.git" 2>/dev/null || {
+    echo "the wiki is enabled but has no clone to scan: disable it, or add a page and scan again" >&2; exit 2; }
+  wiki_status=0
+  "$gg" --config-path "$out/gitguardian.yaml" secret scan repo "$out/wiki.git" --json \
+    > "$out/wiki.json" 2> "$out/wiki.stderr" || wiki_status=$?
+  scopes+=("wiki:$wiki_status")
+fi
 text_status=0
 "$gg" --config-path "$out/gitguardian.yaml" secret scan path --recursive --yes "$out/github-text" --json \
   > "$out/github-text.json" 2> "$out/github-text.stderr" || text_status=$?
@@ -91,7 +109,7 @@ refs="$(git -C "$out/mirror.git" for-each-ref --format='%(refname)')"
   echo "quota after: $(quota)"
   # A scan is clean when ggshield exits 0, reports no incident and no error, says nothing failed, and
   # skips nothing but binary files (which it cannot decode). Findings are located, never shown.
-  python3 - "$out" "history:$status" "github-text:$text_status" <<'PY'
+  python3 - "$out" "${scopes[@]}" "github-text:$text_status" <<'PY'
 import json, sys
 from pathlib import Path
 out, clean = Path(sys.argv[1]), True
