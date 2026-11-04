@@ -32,25 +32,26 @@ export PATH="$HOME/.venvs/colvenna-ggshield/bin:$PATH" GITGUARDIAN_API_KEY=...  
   The reports in the directory contain the matched values, so keep the directory private. The summary has no values.
 - **Each commit and each push (best effort):** `pre-commit install` enables the [ggshield hooks](.pre-commit-config.yaml). They use the `ggshield` on `PATH` and refuse any version other than the one in the lock file.
   - The pre-commit hook scans the staged changes.
-  - The pre-push hook scans the commits about to be published. It covers at most `max_commits_for_hook` commits of a push (1000, set in `.gitguardian.yaml`), and ggshield lets a push through with only a warning when it cannot work out the commit range.
+  - The pre-push hook scans the commits about to be published. It covers at most `max_commits_for_hook` commits of a push (1000, set in `.gitguardian.yaml`), and ggshield lets a push through with only a warning when it cannot work out the commit range. When one push updates several refs (`git push --all`, or several branches or tags), pre-commit hands ggshield only the first, so push them one at a time.
   - Without an API key, they stop with ggshield's error.
   - `SKIP=ggshield,ggshield-push` or `git push --no-verify` skips them. The CI job and the full scan still apply.
 - **A finding:**
   - A real credential is revoked or rotated first, then the history is reviewed. It is never ignored.
   - Any other finding is added to `.gitguardian.yaml` by its ignore SHA, with a name that gives the file and the reason. The addition is reviewed in its pull request.
   - No path or detector is ignored.
-- **Deployment values:** ggshield does not look for AWS account IDs, ARNs or internal addresses, so before merging, a maintainer also searches what the full scan fetched:
+- **Deployment values:** ggshield does not look for AWS account IDs, ARNs, endpoints or internal addresses, so before merging, a maintainer also searches what the full scan fetched:
   - Each account that a deployment of yours used must appear 0 times.
-  - List the accounts named in ARNs and the private IPv4 addresses, and review each one.
+  - List the accounts named in ARNs, the AWS endpoint hosts and the private IPv4 addresses, and review each one.
 
   Documentation examples, such as `123456789012`, are expected:
 
   ```bash
   ACCOUNT=<your deployment account ID>; DIR=<private directory>
-  content() { for git in "$DIR"/mirror.git "$DIR"/wiki.git; do [ -d "$git" ] && git -C "$git" log --all -p; done
+  content() { for git in "$DIR"/mirror.git "$DIR"/wiki.git; do if [ -d "$git" ]; then git -C "$git" log --all -p; fi; done
               grep -rhI '' "$DIR/github-text"; }
   content | grep -c "$ACCOUNT"  # must be 0
   content | grep -oE 'arn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:[0-9]{12}:' | grep -oE '[0-9]{12}' | sort | uniq -c
+  content | grep -oE '[a-z0-9.-]+\.(amazonaws\.com|cloudfront\.net|awsapps\.com)' | sort | uniq -c
   content | grep -oE '\b(10\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])|192\.168)\.[0-9]+\.[0-9]+\b' | sort | uniq -c
   ```
 

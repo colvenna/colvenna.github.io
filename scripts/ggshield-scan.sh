@@ -28,6 +28,25 @@ if [[ "$have" != "$want" ]]; then # the completeness checks read this version's 
   echo "the scan needs ggshield $want, installed from scripts/ggshield-requirements.lock (found: ${have:-none})" >&2
   exit 2
 fi
+python="$(dirname "$(readlink -f "$(command -v "$gg")")")/python3" # ggshield's own environment
+# ggshield 1.56.1 always applies its default exclusions (vendor/, node_modules/, .venv/, *.mdx, *.sops, ...)
+# and says nothing about them; --ignore-default-excludes has no effect. excluded prints each NUL-separated
+# path on stdin that they match, with ggshield's own matcher.
+excluded() {
+  "$python" -c '
+import sys
+from ggshield.cmd.secret.scan.secret_scan_common_options import IGNORED_DEFAULT_WILDCARDS
+from ggshield.core.filter import init_exclusion_regexes
+from ggshield.utils.files import is_path_excluded
+regexes = init_exclusion_regexes(set(IGNORED_DEFAULT_WILDCARDS))
+for path in sorted({path.strip("\n") for path in sys.stdin.read().split("\0")} - {""}):
+    if is_path_excluded(path, regexes):
+        print(path)'
+}
+# Its path scans match the exclusions against the absolute path: refuse an output directory under one.
+if [[ -n "$(printf '%s\0' "$(readlink -f "$out")/probe/file.txt" | excluded)" ]]; then
+  echo "$out is under a path ggshield's default exclusions skip (such as vendor/ or .venv/)" >&2; exit 2
+fi
 quota() { "$gg" quota 2>/dev/null | head -1 || echo unavailable; }
 quota_before="$(quota)"
 
@@ -97,21 +116,11 @@ text_status=0
 "$gg" --config-path "$out/gitguardian.yaml" secret scan path --recursive --yes "$out/github-text" --json \
   > "$out/github-text.json" 2> "$out/github-text.stderr" || text_status=$?
 
-# ggshield 1.56.1 always applies its default exclusions (vendor/, node_modules/, .venv/, *.mdx, *.sops, ...)
-# and says nothing about them; --ignore-default-excludes has no effect. List the paths of each history
-# that they match, with ggshield's own matcher, so that the summary fails on them.
-python="$(dirname "$(readlink -f "$(command -v "$gg")")")/python3"
+# The paths of each history that ggshield's default exclusions skip, unquoted (core.quotePath=false), so
+# that a non-ASCII path is matched as ggshield sees it; the summary fails on any.
 for scope in "${scopes[@]%%:*}"; do
   clone="$out/mirror.git"; [[ "$scope" == wiki ]] && clone="$out/wiki.git"
-  git -C "$clone" log --all --format= --name-only | sort -u | "$python" -c '
-import sys
-from ggshield.cmd.secret.scan.secret_scan_common_options import IGNORED_DEFAULT_WILDCARDS
-from ggshield.core.filter import init_exclusion_regexes
-from ggshield.utils.files import is_path_excluded
-regexes = init_exclusion_regexes(set(IGNORED_DEFAULT_WILDCARDS))
-for path in sys.stdin.read().split("\n"):
-    if path and is_path_excluded(path, regexes):
-        print(path)' > "$out/$scope.unscanned"
+  git -C "$clone" -c core.quotePath=false log -z --all --format= --name-only | excluded > "$out/$scope.unscanned"
 done
 refs="$(git -C "$out/mirror.git" for-each-ref --format='%(refname)')"
 {
