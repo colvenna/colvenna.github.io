@@ -84,7 +84,8 @@ status=0
 "$gg" --config-path "$out/gitguardian.yaml" secret scan repo "$out/mirror.git" --json \
   > "$out/history.json" 2> "$out/history.stderr" || status=$?
 scopes=("history:$status")
-if [[ "$(gh api "repos/$repo" --jq .has_wiki)" == true ]]; then
+has_wiki="$(gh api "repos/$repo" --jq .has_wiki)" # fails the script, rather than skipping the wiki
+if [[ "$has_wiki" == true ]]; then
   "${anon[@]}" clone --quiet --mirror "https://github.com/$repo.wiki.git" "$out/wiki.git" 2>/dev/null || {
     echo "the wiki is enabled but has no clone to scan: disable it, or add a page and scan again" >&2; exit 2; }
   wiki_status=0
@@ -96,6 +97,22 @@ text_status=0
 "$gg" --config-path "$out/gitguardian.yaml" secret scan path --recursive --yes "$out/github-text" --json \
   > "$out/github-text.json" 2> "$out/github-text.stderr" || text_status=$?
 
+# ggshield 1.56.1 always applies its default exclusions (vendor/, node_modules/, .venv/, *.mdx, *.sops, ...)
+# and says nothing about them; --ignore-default-excludes has no effect. List the paths of each history
+# that they match, with ggshield's own matcher, so that the summary fails on them.
+python="$(dirname "$(readlink -f "$(command -v "$gg")")")/python3"
+for scope in "${scopes[@]%%:*}"; do
+  clone="$out/mirror.git"; [[ "$scope" == wiki ]] && clone="$out/wiki.git"
+  git -C "$clone" log --all --format= --name-only | sort -u | "$python" -c '
+import sys
+from ggshield.cmd.secret.scan.secret_scan_common_options import IGNORED_DEFAULT_WILDCARDS
+from ggshield.core.filter import init_exclusion_regexes
+from ggshield.utils.files import is_path_excluded
+regexes = init_exclusion_regexes(set(IGNORED_DEFAULT_WILDCARDS))
+for path in sys.stdin.read().split("\n"):
+    if path and is_path_excluded(path, regexes):
+        print(path)' > "$out/$scope.unscanned"
+done
 refs="$(git -C "$out/mirror.git" for-each-ref --format='%(refname)')"
 {
   echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -135,6 +152,10 @@ for argument in sys.argv[2:]:
         if line.startswith("Skipped ") and not line.endswith(": can't detect encoding"):
             print(f"  - not scanned: {line[len('Skipped '):].split('/')[-1]}")
             clean = False
+    unscanned = out / f"{scope}.unscanned"
+    for path in unscanned.read_text().split() if unscanned.exists() else []:
+        print(f"  - not scanned: {path} (ggshield's default exclusions)")
+        clean = False
     for commit in report.get("scans") or [report]:
         where = f"commit {commit['id'][:12]}, " if "scans" in report else ""
         for entity in commit.get("entities_with_incidents") or []:
