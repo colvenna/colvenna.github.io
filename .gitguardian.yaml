@@ -1,0 +1,8 @@
+# ggshield settings (GitGuardian's command-line scanner, configuration version 2):
+# https://docs.gitguardian.com/ggshield-docs/configuration
+# The full scan of 2026-11-04 (https://github.com/colvenna/colvenna.github.io/issues/4) found nothing in
+# the history, the Pages artifact or the GitHub text, so nothing is ignored: no value, no path and no
+# detector. Add an entry under secret.ignored_matches only for a value checked by hand, by its ignore SHA
+# with a name that gives the file and the reason, reviewed in its pull request (README.md#secret-scanning);
+# a real credential is revoked or rotated, never ignored.
+version: 2
