@@ -79,7 +79,7 @@
     <section id="products" class="catalog" aria-labelledby="catalog-title">
       <div class="section-heading">
         <div><p class="eyebrow">THE COLVENNA COLLECTION</p><h2 id="catalog-title" data-zh="为数据的不同阶段而生。" data-en="Built for every stage of data.">为数据的不同阶段而生。</h2></div>
-        <p data-zh="当前上架 1 个公开产品。" data-en="1 public product available.">当前上架 1 个公开产品。</p>
+        <p data-zh="当前上架 3 个公开产品。" data-en="3 public products available.">当前上架 3 个公开产品。</p>
       </div>
       <div class="catalog-tools" hidden>
 
@@ -94,6 +94,24 @@
       <p class="product-description">经 API 写入、用 SQL 与 Python 管道加工，查询持久保存在 Amazon S3 中的分析数据库，带查询编辑器与管理控制台。</p>
       <a class="product-link" href="https://github.com/colvenna/colvenna-isle"><span data-zh="查看项目" data-en="Explore project">查看项目</span>
         <span aria-hidden="true">↗</span><span class="sr-only"> — Colvenna Isle</span></a>
+    </article>
+<article class="product-card" id="colvenna-lake" data-category="streams">
+      <div class="card-top"><span class="product-number">02</span>
+        <span class="product-kind">Lakehouse &amp; streams</span></div>
+      <h3><span>Colvenna</span> Lake</h3>
+      <p class="product-subtitle" data-zh="基于 Apache Paimon 的声明式实时湖仓" data-en="Declarative real-time lakehouse, powered by Apache Paimon">基于 Apache Paimon 的声明式实时湖仓</p>
+      <p class="product-description">数据库 CDC 与事件流分钟级入湖，同一份数据既服务流式管道，也服务交互式分析。在 Kubernetes 与 S3 上以声明式资源管理数据源、分层表、看板与维护任务，结合 Apache Flink 与 Apache Doris。</p>
+      <a class="product-link" href="https://github.com/colvenna/colvenna-lake"><span data-zh="查看项目" data-en="Explore project">查看项目</span>
+        <span aria-hidden="true">↗</span><span class="sr-only"> — Colvenna Lake</span></a>
+    </article>
+<article class="product-card" id="colvenna-catalog" data-category="streams">
+      <div class="card-top"><span class="product-number">03</span>
+        <span class="product-kind">Lakehouse &amp; streams</span></div>
+      <h3><span>Colvenna</span> Catalog</h3>
+      <p class="product-subtitle" data-zh="Apache Paimon 的 REST 目录服务" data-en="REST catalog server for Apache Paimon">Apache Paimon 的 REST 目录服务</p>
+      <p class="product-description">开源（Apache-2.0），实现 Apache Paimon 2.0.0 的 REST catalog 协议，引擎用 Paimon 自带的客户端直接连接。装进你自己的 AWS 账号：元数据在你的 PostgreSQL，表数据在你的 S3；运行在 Amazon EKS 上，或以无服务器方式运行在 AWS Lambda 上。</p>
+      <a class="product-link" href="https://github.com/colvenna/colvenna-catalog"><span data-zh="查看项目" data-en="Explore project">查看项目</span>
+        <span aria-hidden="true">↗</span><span class="sr-only"> — Colvenna Catalog</span></a>
     </article></div>
       <p id="empty-state" class="empty-state" hidden data-zh="没有匹配的产品。试试其他名称或分类。" data-en="No matching products. Try another name or category.">没有匹配的产品。试试其他名称或分类。</p>
       <p class="catalog-note" data-zh="这里仅展示已公开的产品仓库。功能、版本与使用方式以各仓库文档为准。" data-en="Only public product repositories are listed. Refer to each repository for implementation details, versions and setup.">这里仅展示已公开的产品仓库。功能、版本与使用方式以各仓库文档为准。</p>
