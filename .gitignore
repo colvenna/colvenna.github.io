@@ -1,0 +1,2 @@
+# ggshield writes its cache, which holds the latest findings, here: never commit it.
+.cache_ggshield
